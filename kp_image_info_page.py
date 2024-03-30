@@ -5,7 +5,7 @@ available when you press the button with the hammer and wrench icon.
 
 from selenium.common.exceptions import NoSuchElementException
 from lematization import lema
-from regex_tools import keywords_opimization
+from regex_tools import keywords_optimization
 from selenium.webdriver.common.by import By
 
 from write_to_csv import write_kp_files_keywords
@@ -50,11 +50,11 @@ def image_info_optimization(driver, text_edit_link):
 
         keywords_from_caption = ", ".join(lema(caption))
 
-        concatinated_keywords = keywords_from_caption + ", " + keywords  # concatinate keywords
+        concatenated_keywords = keywords_from_caption + ", " + keywords  # concatenate keywords
 
-        add_new_keywords(concatinated_keywords)
+        add_new_keywords(concatenated_keywords)
 
-        optimized_keywords = keywords_opimization(concatinated_keywords)  # replace ; with comma
+        optimized_keywords = keywords_optimization(concatenated_keywords)  # replace ; with comma
 
         print(optimized_keywords)
 
