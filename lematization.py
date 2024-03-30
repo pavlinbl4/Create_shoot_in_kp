@@ -1,7 +1,6 @@
 from pymystem3 import Mystem
 
-from regex_tools import extract_words_no_digits
-from best_keywords import keywords_optimization
+from regex_tools import extract_words_no_digits, keywords_optimization
 
 
 def lema_minus_bad_words(any_text: str):
