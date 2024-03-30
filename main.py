@@ -3,11 +3,14 @@ import time
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.keys import Keys
 import pyperclip
-from selenium_tools import select_category
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+from add_category import select_category
 from authorization import AuthorizationHandler
+from ftp_follder import create_ftp_folder
 from start_window import get_input_data
+from telegram_bot_tools.send_message_to_telegram import send_telegram_message
 
 
 def navigate_to_shoot_creation_page(driver):
@@ -97,17 +100,15 @@ def create_shoot(shoot_caption, category_number):
         """
          confirm shoot creation
         """
-        # driver.find_element('id', 'SubmitBtn').click()
+        driver.find_element('id', 'SubmitBtn').click()
 
-        # number = driver.find_element('id', "shootnum").text
-        # number = number.replace("№ ", "KSP_0")
-        # pyperclip.copy(number)
+        number = driver.find_element('id', "shootnum").text
+        number = number.replace("№ ", "KSP_0")
+        pyperclip.copy(number)
 
-        # create_ftp_folder(number)
+        create_ftp_folder(number)
 
-        # send_telegram_message(f'{number} - {shoot_caption}')
-
-        # system_notification(number, shoot_caption)
+        send_telegram_message(f'{number} - {shoot_caption}')
 
         time.sleep(5)
 
