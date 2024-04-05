@@ -1,128 +1,139 @@
-from datetime import datetime
-import time
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.common.keys import Keys
-import pyperclip
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import asyncio
+import logging
+import sys
+from typing import Any, Dict
 
-from add_category import select_category
-from authorization import AuthorizationHandler
-from ftp_follder import create_ftp_folder
-from start_window import get_input_data
-from telegram_bot_tools.send_message_to_telegram import send_telegram_message
+from aiogram import Bot, Dispatcher, F, Router
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import (
+    KeyboardButton,
+    Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
+from create_shoot import create_shoot
+from telegram_bot_tools import kp_keyboard
+from data.categories import category_dict
+from data.get_credentials import Credentials
 
-def navigate_to_shoot_creation_page(driver):
-    driver.find_element("css selector",
-                        "body > table.logotbl > tbody > tr:nth-child(3) > "
-                        "td > table > tbody > tr > td:nth-child(2) > a").click()
-    driver.find_element('id', "nav_shoots_change").click()
+import subprocess
 
-
-def fill_shoot_details(driver, shoot_caption, category_number):
-    original_window = driver.current_window_handle
-
-    # Add category
-    select_category(category_number, driver)
-    driver.switch_to.window(original_window)  # Focus on the main window after closing the category window
-
-    # Add shoot description
-    WebDriverWait(driver, 3).until(EC.element_to_be_clickable(('id', "ShootDescription")))
-    caption_input = driver.find_element('id', "ShootDescription")
-    caption_input.send_keys(shoot_caption)
+form_router = Router()
 
 
-def set_shoot_date(driver, today_date):
-    # ввожу дату
-    WebDriverWait(driver, 3).until(EC.element_to_be_clickable(('id', "DateFrom")))
-    day_input = driver.find_element('id', "DateFrom")
-    day_input.send_keys(today_date)
-
-    time_input = driver.find_element('id', 'TimeFrom')
-    time_input.send_keys(Keys.NUMPAD1)
-
-    time_input.send_keys(Keys.SPACE)
-    time_input = driver.find_element('id', 'TimeTo')
-    time_input.send_keys(Keys.NUMPAD2)
-    time_input.send_keys(Keys.SPACE)
+class Form(StatesGroup):
+    name = State()
+    confirm = State()
+    caption = State()
 
 
-def set_customer(driver):
-    WebDriverWait(driver, 3).until(EC.element_to_be_clickable(('id', "CustomerContact")))
-    customer_input = driver.find_element('id', "CustomerContact")
-    customer_input.send_keys("Павленко Евгений Валентинович")
-
-    time.sleep(2)
-    customer_input.send_keys(Keys.DOWN)
-    customer_input.send_keys(Keys.ENTER)
-
-
-def set_bildeditor(driver):
-    # выбираю бильдредактора с помощью класса Select
-    WebDriverWait(driver, 3).until(EC.element_to_be_clickable(("name", 'EditorContactID')))
-    select = Select(driver.find_element("name", 'EditorContactID'))
-    select.select_by_value('2571')
+@form_router.message(CommandStart())
+async def command_start(message: Message, state: FSMContext) -> None:
+    await state.set_state(Form.name)
+    await message.answer("Для создания съемки\nвыберите категорию",
+                         reply_markup=kp_keyboard.kp_keyboard.as_markup(
+                             resize_keyboard=True,
+                         ))
 
 
-def set_author(driver):
-    author_input = driver.find_element('id', "AuthorContact")
-    author_input.send_keys("Павленко Евгений Валентинович")
-    time.sleep(1)
-    author_input.send_keys(Keys.DOWN)
-    time.sleep(1)
-    author_input.send_keys(Keys.ENTER)
-    time.sleep(1)
+@form_router.message(Command("cancel"))
+@form_router.message(F.text.casefold() == "cancel")
+async def cancel_handler(message: Message, state: FSMContext) -> None:
+    """
+    Allow user to cancel any action
+    """
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+
+    logging.info("Cancelling state %r", current_state)
+    await state.clear()
+    await message.answer(
+        "*Оформление съемки отменено*",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
-def create_shoot(shoot_caption, category_number):
-    today_date = f'{datetime.now().strftime("%d.%m.%Y")}'
-
-    # shoot_caption = get_input_data()  # add caption via GUI
-    # shoot_caption, category_number = get_input_data()  # add caption via GUI
-    pyperclip.copy(shoot_caption)  # backup text to clipboard
-    # category_number = create_checkbox_dict()  # select category from GUI
-    driver = AuthorizationHandler().authorize()
-    try:
-
-        navigate_to_shoot_creation_page(driver)
-
-        fill_shoot_details(driver, shoot_caption, category_number)
-
-        set_shoot_date(driver, today_date)
-
-        set_customer(driver)
-
-        set_bildeditor(driver)
-
-        set_author(driver)
-
-        """
-         confirm shoot creation
-        """
-        driver.find_element('id', 'SubmitBtn').click()
-
-        number = driver.find_element('id', "shootnum").text
-        number = number.replace("№ ", "KSP_0")
-        pyperclip.copy(number)
-
-        create_ftp_folder(number)
-
-        send_telegram_message(f'{number} - {shoot_caption}')
-
-        time.sleep(5)
-
-        driver.close()
-        driver.quit()
-
-        # time.sleep(1)
-
-    except Exception as ex:
-        print(ex)
-        driver.close()
-        driver.quit()
+@form_router.message(Form.name)
+async def process_name(message: Message, state: FSMContext) -> None:
+    await state.update_data(name=message.text)
+    await state.set_state(Form.confirm)
+    await message.answer(
+        f"_Выбрана категория_ \n*{message.text}*\nПодтвердите ваш выбор",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [
+                    KeyboardButton(text="Yes"),
+                    KeyboardButton(text="No"),
+                ]
+            ],
+            resize_keyboard=True,
+        ),
+    )
 
 
-if __name__ == '__main__':
-    shoot_caption_, category_number_ = get_input_data()  # add caption via GUI
-    create_shoot(shoot_caption_, category_number_)
+@form_router.message(Form.confirm, F.text.casefold() == "no")
+async def process_bad_category(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await state.clear()
+    await message.answer(
+        "Запустите бота заново командой\n**/start**",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await show_summary(message=message, data=data, positive=False)
+
+
+@form_router.message(Form.confirm, F.text.casefold() == "yes")
+async def process_good_category(message: Message, state: FSMContext) -> None:
+    await state.set_state(Form.caption)
+    data = await state.get_data()
+
+    await message.reply(
+        f"_Выбрана категория_: *{data['name']}*\nВведите описание съемки",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@form_router.message(Form.caption)
+async def process_caption(message: Message, state: FSMContext) -> None:
+    data = await state.update_data(caption=message.text)
+    await state.clear()
+    await show_summary(message=message, data=data)
+
+
+async def show_summary(message: Message, data: Dict[str, Any], positive: bool = True) -> None:
+    name = data["name"]
+    caption = data.get("caption", "")
+    if positive:
+        text = f"Категория - *{name}*\n"
+        text += f"_описание съемки_: *{caption}*\n"
+        text += "*Заявка на съемку создается*"
+    else:
+        text = "_ошибки бывают у всех_"
+
+    await message.answer(text=text, reply_markup=ReplyKeyboardRemove())
+    # try:
+    subprocess.call(['python', create_shoot(caption, category_dict[name])])
+    await message.reply("Your Python app has been launched.")
+    # except Exception as e:
+    #     await message.reply(f"Error: {e}")
+
+
+async def main():
+    bot = Bot(token=Credentials().pavlinbl4_bot,
+              default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
+    dp = Dispatcher()
+    dp.include_router(form_router)
+
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+
+    asyncio.run(main())
