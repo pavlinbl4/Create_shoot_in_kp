@@ -1,13 +1,10 @@
 import ftplib
-import os
-from dotenv import load_dotenv
+from data.get_credentials import Credentials
 
 
 def create_ftp_folder(shoot_id):
-    load_dotenv()
-
-    ftp_login = os.environ.get('FTP_LOGIN')
-    ftp_pass = os.environ.get('FTP_PASS')
+    ftp_login = Credentials().ftp_login
+    ftp_pass = Credentials().ftp_pass
 
     # noinspection PyTypeChecker
     ftp = ftplib.FTP('ftp.kommersant.ru', ftp_login, ftp_pass, timeout=1)
@@ -31,4 +28,4 @@ def create_ftp_folder(shoot_id):
 
 
 if __name__ == '__main__':
-    create_ftp_folder('KSP_017764')
+    create_ftp_folder('KSP_0000000')

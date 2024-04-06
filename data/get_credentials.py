@@ -20,6 +20,7 @@ class Credentials:
         self.rdk_login = os.getenv('RDK_LOGING')
         self.ftp_pass = os.getenv('FTP_PASS')
         self.ftp_login = os.getenv('FTP_LOGIN')
+        self.kp_tools = os.getenv('KP_TOOLS_BOT')
 
 
 if __name__ == '__main__':

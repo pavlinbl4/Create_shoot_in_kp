@@ -1,7 +1,7 @@
 from aiogram.types import ReplyKeyboardRemove,  KeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
-from categories import category_dict
+from data.categories import category_dict
 
 kp_keyboard = ReplyKeyboardBuilder()
 for key, value in category_dict.items():
