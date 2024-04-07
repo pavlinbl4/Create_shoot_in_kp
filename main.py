@@ -20,6 +20,7 @@ from create_shoot import create_shoot
 from telegram_bot_tools import kp_keyboard
 from data.categories import category_dict
 from data.get_credentials import Credentials
+from aiogram.types import Message
 
 import subprocess
 
@@ -34,11 +35,13 @@ class Form(StatesGroup):
 
 @form_router.message(CommandStart())
 async def command_start(message: Message, state: FSMContext) -> None:
+    logging.info(f"User {message.from_user.full_name}  with id {message.from_user.id}")
     await state.set_state(Form.name)
     await message.answer("Для создания съемки\nвыберите категорию",
                          reply_markup=kp_keyboard.kp_keyboard.as_markup(
                              resize_keyboard=True,
                          ))
+
 
 
 @form_router.message(Command("cancel"))
@@ -52,6 +55,7 @@ async def cancel_handler(message: Message, state: FSMContext) -> None:
         return
 
     logging.info("Cancelling state %r", current_state)
+
     await state.clear()
     await message.answer(
         "*Оформление съемки отменено*",
@@ -59,7 +63,8 @@ async def cancel_handler(message: Message, state: FSMContext) -> None:
     )
 
 
-@form_router.message(Form.name, F.from_user.full_name.in_({'Евгений Павленко'}))
+# @form_router.message(Form.name)
+@form_router.message(Form.name, F.from_user.full_name.in_({'Евгений Павленко', 'Александр Коряков'}))
 async def process_name(message: Message, state: FSMContext) -> None:
     await state.update_data(name=message.text)
     await state.set_state(Form.confirm)
@@ -76,10 +81,15 @@ async def process_name(message: Message, state: FSMContext) -> None:
         ),
     )
 
+@form_router.message(F.from_user.full_name.not_in({'Евгений Павленко', 'Александр Коряков'}))
+async def handle_other_messages(message: Message):
+    await message.answer("It's private bot, you are not an allowed user.")
+
 
 @form_router.message(Form.confirm, F.text.casefold() == "no")
 async def process_bad_category(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
+    logging.info(f"User pressed NO {data}")
     await state.clear()
     await message.answer(
         "Запустите бота заново командой\n**/start**",
@@ -113,19 +123,21 @@ async def show_summary(message: Message, data: Dict[str, Any], positive: bool = 
         text = f"Категория - *{name}*\n"
         text += f"_описание съемки_: *{caption}*\n"
         text += "*Заявка на съемку создается*"
+        await message.answer(text=text, reply_markup=ReplyKeyboardRemove())
+        try:
+            create_shoot(caption, category_dict[name], message.from_user.full_name)
+            await message.answer("I hope all good")
+        except Exception as e:
+            await message.reply(f"Error: {e}")
     else:
         text = "_ошибки бывают у всех_"
+        await message.answer(text=text, reply_markup=ReplyKeyboardRemove())
 
-    await message.answer(text=text, reply_markup=ReplyKeyboardRemove())
-    try:
-        create_shoot(caption, category_dict[name], message.from_user.full_name)
-        await message.reply("Your Python app has been launched.")
-    except Exception as e:
-        await message.reply(f"Error: {e}")
+
 
 
 async def main():
-    bot = Bot(token=Credentials().pavlinbl4_bot,
+    bot = Bot(token=Credentials().kp_tools,
               default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
     dp = Dispatcher()
     dp.include_router(form_router)
@@ -134,6 +146,8 @@ async def main():
 
 
 if __name__ == "__main__":
+
+    logging.basicConfig(level=logging.INFO, filename="py_log.log", filemode="w")
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
     asyncio.run(main())
