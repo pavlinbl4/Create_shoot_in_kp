@@ -59,7 +59,7 @@ async def cancel_handler(message: Message, state: FSMContext) -> None:
     )
 
 
-@form_router.message(Form.name)
+@form_router.message(Form.name, F.from_user.id.in_({18759796199}))
 async def process_name(message: Message, state: FSMContext) -> None:
     await state.update_data(name=message.text)
     await state.set_state(Form.confirm)
