@@ -59,7 +59,7 @@ async def cancel_handler(message: Message, state: FSMContext) -> None:
     )
 
 
-@form_router.message(Form.name, F.from_user.id.in_({18759796199}))
+@form_router.message(Form.name, F.from_user.full_name.in_({'Евгений Павленко'}))
 async def process_name(message: Message, state: FSMContext) -> None:
     await state.update_data(name=message.text)
     await state.set_state(Form.confirm)
@@ -117,11 +117,11 @@ async def show_summary(message: Message, data: Dict[str, Any], positive: bool = 
         text = "_ошибки бывают у всех_"
 
     await message.answer(text=text, reply_markup=ReplyKeyboardRemove())
-    # try:
-    subprocess.call(['python', create_shoot(caption, category_dict[name])])
-    await message.reply("Your Python app has been launched.")
-    # except Exception as e:
-    #     await message.reply(f"Error: {e}")
+    try:
+        create_shoot(caption, category_dict[name], message.from_user.full_name)
+        await message.reply("Your Python app has been launched.")
+    except Exception as e:
+        await message.reply(f"Error: {e}")
 
 
 async def main():
