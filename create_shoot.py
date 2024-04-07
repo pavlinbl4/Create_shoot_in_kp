@@ -10,6 +10,9 @@ from ftp.ftp_follder import create_ftp_folder
 from send_message_to_telegram import send_telegram_message
 import tracemalloc
 
+authors_dict = {'Евгений Павленко': "Павленко Евгений Валентинович",
+                'Александр Коряков': "Коряков Александр Владимирович"}
+
 
 def navigate_to_shoot_creation_page(driver):
     # driver.find_element("css selector",
@@ -48,10 +51,11 @@ def set_shoot_date(driver, today_date):
     time_input.send_keys(Keys.SPACE)
 
 
-def set_customer(driver):
+def set_customer(driver, user):
     WebDriverWait(driver, 3).until(EC.element_to_be_clickable(('id', "CustomerContact")))
     customer_input = driver.find_element('id', "CustomerContact")
-    customer_input.send_keys("Павленко Евгений Валентинович")
+    # customer_input.send_keys("Павленко Евгений Валентинович")
+    customer_input.send_keys(authors_dict[user])
 
     time.sleep(2)
     customer_input.send_keys(Keys.DOWN)
@@ -65,9 +69,10 @@ def set_bildeditor(driver):
     select.select_by_value('2571')
 
 
-def set_author(driver):
+def set_author(driver, user):
     author_input = driver.find_element('id', "AuthorContact")
-    author_input.send_keys("Павленко Евгений Валентинович")
+    # author_input.send_keys("Павленко Евгений Валентинович")
+    author_input.send_keys(authors_dict[user])
     time.sleep(1)
     author_input.send_keys(Keys.DOWN)
     time.sleep(1)
@@ -75,7 +80,7 @@ def set_author(driver):
     time.sleep(1)
 
 
-def create_shoot(shoot_caption, category_number):
+def create_shoot(shoot_caption, category_number, user):
     today_date = f'{datetime.now().strftime("%d.%m.%Y")}'
 
     driver = AuthorizationHandler(browser="chrome").authorize()
@@ -87,25 +92,25 @@ def create_shoot(shoot_caption, category_number):
 
         set_shoot_date(driver, today_date)
 
-        set_customer(driver)
+        set_customer(driver, user)
 
         set_bildeditor(driver)
 
-        set_author(driver)
+        set_author(driver, user)
 
         number = 'test number'
 
         """
          confirm shoot creation
         """
-        driver.find_element('id', 'SubmitBtn').click()
-        number = driver.find_element('id', "shootnum").text
-        number = number.replace("№ ", "KSP_0")
-        create_ftp_folder(number)
+        # driver.find_element('id', 'SubmitBtn').click()
+        # number = driver.find_element('id', "shootnum").text
+        # number = number.replace("№ ", "KSP_0")
+        # create_ftp_folder(number)
 
         send_telegram_message(f'{number} - {shoot_caption}')
 
-        time.sleep(5)
+        time.sleep(15)
 
         driver.close()
         driver.quit()
@@ -119,12 +124,12 @@ def create_shoot(shoot_caption, category_number):
 
 
 if __name__ == '__main__':
-    tracemalloc.start()
-    create_shoot("test caption for universal browser", '1000000')
-    snapshot = tracemalloc.take_snapshot()
-    top_stats = snapshot.statistics('lineno')
+    # tracemalloc.start()
+    # create_shoot("test caption for universal browser", '1000000', 'Евгений Павленко')
+    create_shoot("test caption for universal browser", '1000000', 'Александр Коряков')
+    # snapshot = tracemalloc.take_snapshot()
+    # top_stats = snapshot.statistics('lineno')
 
-    # Напечатайте 10 самых "жадных" строк кода
-    for stat in top_stats[:10]:
-        print(stat)
-
+    # # Напечатайте 10 самых "жадных" строк кода
+    # for stat in top_stats[:10]:
+    #     print(stat)
