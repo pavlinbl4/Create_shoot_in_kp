@@ -1,7 +1,8 @@
+import logging
 import time
-import tracemalloc
 from datetime import datetime
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
@@ -11,6 +12,9 @@ from browser.add_category import select_category
 from browser.authorization import AuthorizationHandler
 from ftp.ftp_follder import create_ftp_folder
 from send_message_to_telegram import send_telegram_message
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def navigate_to_shoot_creation_page(driver):
@@ -74,51 +78,29 @@ def set_author(driver):
 
 def create_shoot(shoot_caption, category_number):
     today_date = f'{datetime.now().strftime("%d.%m.%Y")}'
+    driver = None
 
-    driver = AuthorizationHandler(browser="chrome").authorize()
     try:
+        driver = AuthorizationHandler(browser="chrome").authorize()
 
         navigate_to_shoot_creation_page(driver)
-
         fill_shoot_details(driver, shoot_caption, category_number)
-
         set_shoot_date(driver, today_date)
-
         set_customer(driver)
-
         set_bildeditor(driver)
-
         set_author(driver)
 
-        # number = 'test number'
-
-        """
-         confirm shoot creation
-        """
+        # Confirm shoot creation
         driver.find_element('id', 'SubmitBtn').click()
         number = driver.find_element('id', "shootnum").text
         number = number.replace("№ ", "KSP_0")
         create_ftp_folder(number)
-
         send_telegram_message(f'{number} - {shoot_caption}')
-
-        time.sleep(5)
-
-        driver.close()
-        driver.quit()
-
+        logging.info(f"Successfully created shoot: {number}")
+    except TimeoutException as e:
+        logging.error(f"Timeout occurred: {e}")
     except Exception as ex:
-        print(ex)
-        driver.close()
-        driver.quit()
-
-
-if __name__ == '__main__':
-    tracemalloc.start()
-    create_shoot("test caption for universal browser", '1000000')
-    snapshot = tracemalloc.take_snapshot()
-    top_stats = snapshot.statistics('lineno')
-
-    # Напечатайте 10 самых "жадных" строк кода
-    for stat in top_stats[:10]:
-        print(stat)
+        logging.error(f"An error occurred: {ex}")
+    finally:
+        if driver:
+            driver.quit()
