@@ -25,6 +25,9 @@ import subprocess
 
 form_router = Router()
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 class Form(StatesGroup):
     name = State()
@@ -35,14 +38,16 @@ class Form(StatesGroup):
 @form_router.message(CommandStart())
 async def command_start(message: Message, state: FSMContext) -> None:
     await state.set_state(Form.name)
-    await message.answer("Для создания съемки\nвыберите категорию",
-                         reply_markup=kp_keyboard.kp_keyboard.as_markup(
-                             resize_keyboard=True,
-                         ))
+    await message.answer(
+        "Для создания съемки\nвыберите категорию",
+        reply_markup=kp_keyboard.kp_keyboard.as_markup(
+            resize_keyboard=True,
+        ),
+    )
 
 
 @form_router.message(Command("cancel"))
-@form_router.message(F.text.casefold() == "cancel")
+@form_router.message(F.text.func(lambda text: text.lower() == "cancel"))
 async def cancel_handler(message: Message, state: FSMContext) -> None:
     """
     Allow user to cancel any action
@@ -76,13 +81,14 @@ async def process_name(message: Message, state: FSMContext) -> None:
         ),
     )
 
+
 @form_router.message(F.from_user.id.not_({187597961}))
 async def handle_other_messages(message: types.Message):
     # This function will be called for messages from any other user
     await message.reply("Sorry, you are not an allowed user.")
 
 
-@form_router.message(Form.confirm, F.text.casefold() == "no")
+@form_router.message(Form.confirm, F.text.func(lambda text: text.lower() == "no"))
 async def process_bad_category(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     await state.clear()
@@ -93,7 +99,7 @@ async def process_bad_category(message: Message, state: FSMContext) -> None:
     await show_summary(message=message, data=data, positive=False)
 
 
-@form_router.message(Form.confirm, F.text.casefold() == "yes")
+@form_router.message(Form.confirm, F.text.func(lambda text: text.lower() == "yes"))
 async def process_good_category(message: Message, state: FSMContext) -> None:
     await state.set_state(Form.caption)
     data = await state.get_data()
@@ -119,14 +125,28 @@ async def show_summary(message: Message, data: Dict[str, Any], positive: bool = 
         text += f"_описание съемки_: *{caption}*\n"
         text += "*Заявка на съемку создается*"
     else:
-        text = "_ошибки бывают у всех_"
+        text = "_Ошибки бывают у всех_"
 
     await message.answer(text=text, reply_markup=ReplyKeyboardRemove())
-    # try:
-    subprocess.call(['python', create_shoot(caption, category_dict[name])])
-    await message.reply("Your Python app has been launched.")
-    # except Exception as e:
-    #     await message.reply(f"Error: {e}")
+
+    try:
+        # Асинхронный запуск внешнего процесса
+        process = await asyncio.create_subprocess_exec(
+            'python', create_shoot(caption, category_dict[name]),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+
+        if process.returncode == 0:
+            await message.reply("Ваше приложение успешно запущено.")
+            logging.info(f"Process output: {stdout.decode().strip()}")
+        else:
+            await message.reply(f"Ошибка запуска приложения:\n{stderr.decode().strip()}")
+            logging.error(f"Process error: {stderr.decode().strip()}")
+    except Exception as e:
+        await message.reply(f"Ошибка выполнения: {e}")
+        logging.exception("Exception during subprocess execution")
 
 
 async def main():
