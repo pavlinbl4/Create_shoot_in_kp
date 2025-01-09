@@ -1,22 +1,19 @@
-from datetime import datetime
 import time
-from selenium.webdriver.support.ui import Select
+import tracemalloc
+from datetime import datetime
+
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+
 from browser.add_category import select_category
 from browser.authorization import AuthorizationHandler
 from ftp.ftp_follder import create_ftp_folder
 from send_message_to_telegram import send_telegram_message
-import tracemalloc
 
 
 def navigate_to_shoot_creation_page(driver):
-    # driver.find_element("css selector",
-    #                     "body > table.logotbl > tbody > tr:nth-child(3) > "
-    #                     "td > table > tbody > tr > td:nth-child(2) > a").click()
-    # driver.find_element('id', "nav_shoots_change").click()
-
     driver.get('https://image.kommersant.ru/photo/archive/adm/Shoot.asp')
 
 
