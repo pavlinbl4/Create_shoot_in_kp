@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Any, Dict
 
-from aiogram import Bot, Dispatcher, F, Router, types
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
@@ -15,12 +15,12 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-from aiogram.utils.markdown import escape_md
 
-from create_shoot import create_shoot
-from telegram_bot_tools import kp_keyboard
 from data.categories import category_dict
 from data.get_credentials import Credentials
+from telegram_bot_tools import kp_keyboard
+
+# from aiogram.utils.markdown import escape_md
 
 form_router = Router()
 
@@ -82,7 +82,7 @@ async def process_name(message: Message, state: FSMContext) -> None:
     await state.update_data(name=category_name)
     await state.set_state(Form.confirm)
     await message.answer(
-        f"_Выбрана категория_ \n*{escape_md(category_name)}*\nПодтвердите ваш выбор",
+        f"_Выбрана категория_ \n*{category_name}*\nПодтвердите ваш выбор",
         reply_markup=ReplyKeyboardMarkup(
             keyboard=[
                 [
@@ -110,10 +110,10 @@ async def process_bad_category(message: Message, state: FSMContext) -> None:
 async def process_good_category(message: Message, state: FSMContext) -> None:
     await state.set_state(Form.caption)
     data = await state.get_data()
-    category_name = escape_md(data["name"])
+    category_name = data["name"]
 
     await message.reply(
-        f"{escape_md(message.from_user.full_name)}\n_Выбрана категория_: *{category_name}*\nВведите описание съемки",
+        f"{message.from_user.full_name}\n_Выбрана категория_: *{category_name}*\nВведите описание съемки",
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -126,8 +126,8 @@ async def process_caption(message: Message, state: FSMContext) -> None:
 
 
 async def show_summary(message: Message, data: Dict[str, Any], positive: bool = True) -> None:
-    name = escape_md(data["name"])
-    caption = escape_md(data.get("caption", ""))
+    name = data["name"]
+    caption = data.get("caption", "")
 
     if positive:
         text = f"Категория - *{name}*\n"
